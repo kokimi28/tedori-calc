@@ -1,0 +1,28 @@
+import Script from "next/script";
+
+/**
+ * Google Analytics 4（gtag.js）。
+ * NEXT_PUBLIC_GA_MEASUREMENT_ID はビルド時にインライン化される公開値（Vercel で Sensitive=OFF）。
+ * 未設定ならタグを出力しない（ローカル開発やプレビューで無害）。
+ */
+export default function Analytics() {
+  const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+  if (!gaId) return null;
+
+  return (
+    <>
+      <Script
+        src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+        strategy="afterInteractive"
+      />
+      <Script id="ga4-init" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${gaId}');
+        `}
+      </Script>
+    </>
+  );
+}
