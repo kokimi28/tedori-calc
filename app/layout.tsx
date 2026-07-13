@@ -11,7 +11,7 @@ import {
   FOOTER_LINKS,
 } from "@/lib/site";
 
-const TITLE_DEFAULT = `${SITE_NAME}｜所得税・住民税を無料で自動計算`;
+const TITLE_DEFAULT = `${SITE_NAME}｜社会保険料・所得税・住民税を自動計算`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

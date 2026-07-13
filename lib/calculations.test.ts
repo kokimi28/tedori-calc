@@ -1,163 +1,118 @@
 import { describe, it, expect } from "vitest";
 import {
-  countServiceYears,
-  retirementDeduction,
+  salaryIncomeDeduction,
+  basicDeductionIncomeTax,
   incomeTaxByBracket,
-  calculateSeveranceTax,
+  socialInsurance,
+  calculateNetSalary,
 } from "./calculations";
 
-describe("countServiceYears — 勤続年数の端数切り上げ", () => {
-  it("端数の月があれば1年に切り上げる", () => {
-    expect(countServiceYears(10, 1)).toBe(11);
-    expect(countServiceYears(10, 11)).toBe(11);
+describe("salaryIncomeDeduction — 給与所得控除（令和7年分以降）", () => {
+  it("190万円以下は最低保障65万円", () => {
+    expect(salaryIncomeDeduction(1_000_000)).toBe(650_000);
+    expect(salaryIncomeDeduction(1_900_000)).toBe(650_000);
   });
-  it("端数がなければそのまま", () => {
-    expect(countServiceYears(10, 0)).toBe(10);
-    expect(countServiceYears(20, 0)).toBe(20);
+  it("区分ごとの速算表", () => {
+    expect(salaryIncomeDeduction(3_600_000)).toBe(1_160_000); // 30%+8万
+    expect(salaryIncomeDeduction(6_600_000)).toBe(1_760_000); // 20%+44万
+    expect(salaryIncomeDeduction(8_500_000)).toBe(1_950_000); // 10%+110万
   });
-  it("最低1年", () => {
-    expect(countServiceYears(0, 0)).toBe(1);
-    expect(countServiceYears(-5, 0)).toBe(1);
+  it("850万円超は上限195万円", () => {
+    expect(salaryIncomeDeduction(10_000_000)).toBe(1_950_000);
   });
 });
 
-describe("retirementDeduction — 退職所得控除額", () => {
-  it("下限は80万円（勤続1年）", () => {
-    expect(retirementDeduction(1, false)).toBe(800_000);
-  });
-  it("勤続20年ちょうどは 40万×20 = 800万", () => {
-    expect(retirementDeduction(20, false)).toBe(8_000_000);
-  });
-  it("勤続21年は 800万 + 70万×1 = 870万（20年境界）", () => {
-    expect(retirementDeduction(21, false)).toBe(8_700_000);
-  });
-  it("勤続30年は 800万 + 70万×10 = 1500万", () => {
-    expect(retirementDeduction(30, false)).toBe(15_000_000);
-  });
-  it("障害退職は +100万", () => {
-    expect(retirementDeduction(30, true)).toBe(16_000_000);
+describe("basicDeductionIncomeTax — 基礎控除（令和7〜8年分・合計所得別）", () => {
+  it("各区分の境界", () => {
+    expect(basicDeductionIncomeTax(1_320_000)).toBe(950_000);
+    expect(basicDeductionIncomeTax(1_320_001)).toBe(880_000);
+    expect(basicDeductionIncomeTax(3_360_000)).toBe(880_000);
+    expect(basicDeductionIncomeTax(3_360_001)).toBe(680_000);
+    expect(basicDeductionIncomeTax(4_890_000)).toBe(680_000);
+    expect(basicDeductionIncomeTax(4_890_001)).toBe(630_000);
+    expect(basicDeductionIncomeTax(6_550_000)).toBe(630_000);
+    expect(basicDeductionIncomeTax(6_550_001)).toBe(580_000);
+    expect(basicDeductionIncomeTax(23_500_000)).toBe(580_000);
   });
 });
 
 describe("incomeTaxByBracket — 所得税速算表の境界", () => {
-  it("195万未満は5%", () => {
+  it("195万・330万の境界", () => {
     expect(incomeTaxByBracket(1_949_000)).toBe(97_450);
-  });
-  it("195万で10%区分に切り替わる", () => {
     expect(incomeTaxByBracket(1_950_000)).toBe(97_500);
-  });
-  it("330万で20%区分", () => {
     expect(incomeTaxByBracket(3_300_000)).toBe(232_500);
   });
-  it("課税所得0は税0", () => {
+  it("課税0は税0", () => {
     expect(incomeTaxByBracket(0)).toBe(0);
   });
 });
 
-describe("calculateSeveranceTax — 通常ケース（非役員・障害なし）", () => {
-  const r = calculateSeveranceTax({
-    severancePay: 20_000_000,
-    serviceYears: 30,
-    serviceMonths: 0,
-    isDisability: false,
-    isBoardMember: false,
+describe("socialInsurance — 社会保険料（従業員負担）", () => {
+  it("40歳未満は介護保険なし", () => {
+    const si = socialInsurance(4_000_000, false);
+    expect(si.health).toBe(200_000);
+    expect(si.nursing).toBe(0);
+    expect(si.pension).toBe(366_000);
+    expect(si.employment).toBe(24_000);
+    expect(si.total).toBe(590_000);
   });
-  it("控除・課税所得", () => {
-    expect(r.retirementDeduction).toBe(15_000_000);
-    expect(r.incomeAfterDeduction).toBe(5_000_000);
-    expect(r.taxableRetirementIncome).toBe(2_500_000); // 1/2課税
+  it("40歳以上は介護保険が加わる", () => {
+    const si = socialInsurance(4_000_000, true);
+    expect(si.nursing).toBe(Math.round(4_000_000 * 0.00795)); // 31,800
+    expect(si.total).toBe(590_000 + si.nursing);
   });
-  it("所得税・復興・住民税・合計", () => {
-    expect(r.incomeTax).toBe(152_500);
-    expect(r.reconstructionTax).toBe(3_202);
-    expect(r.incomeTaxTotal).toBe(155_702);
-    expect(r.residentTax).toBe(250_000);
-    expect(r.totalTax).toBe(405_702);
-    expect(r.takeHome).toBe(19_594_298);
+  it("厚生年金は標準報酬月額上限（年780万相当）で頭打ち", () => {
+    const hi = socialInsurance(20_000_000, false);
+    expect(hi.pension).toBe(Math.round(7_800_000 * 0.0915)); // 713,700 で頭打ち
   });
 });
 
-describe("calculateSeveranceTax — 収入が控除以下なら税0", () => {
-  const r = calculateSeveranceTax({
-    severancePay: 3_000_000,
-    serviceYears: 10,
-    serviceMonths: 0,
-    isDisability: false,
-    isBoardMember: false,
-  });
-  it("課税所得0・税0・手取り=収入", () => {
-    expect(r.incomeAfterDeduction).toBe(0);
-    expect(r.taxableRetirementIncome).toBe(0);
-    expect(r.totalTax).toBe(0);
-    expect(r.takeHome).toBe(3_000_000);
-  });
-});
-
-describe("calculateSeveranceTax — 特定役員退職手当等（役員・勤続5年以下は1/2なし）", () => {
-  const r = calculateSeveranceTax({
-    severancePay: 6_000_000,
-    serviceYears: 5,
-    serviceMonths: 0,
-    isDisability: false,
-    isBoardMember: true,
-  });
-  it("1/2課税されない", () => {
-    expect(r.isSpecialOfficer).toBe(true);
-    expect(r.incomeAfterDeduction).toBe(4_000_000);
-    expect(r.taxableRetirementIncome).toBe(4_000_000);
-  });
-  it("税額", () => {
-    expect(r.incomeTax).toBe(372_500);
-    expect(r.incomeTaxTotal).toBe(380_322);
-    expect(r.residentTax).toBe(400_000);
-    expect(r.totalTax).toBe(780_322);
+describe("calculateNetSalary — 年収400万・40歳未満（基準ケース）", () => {
+  const r = calculateNetSalary({ annualIncome: 4_000_000, isOver40: false });
+  it("社会保険料・所得税・住民税・手取り", () => {
+    expect(r.socialInsurance).toBe(590_000);
+    expect(r.salaryDeduction).toBe(1_240_000);
+    expect(r.employmentIncome).toBe(2_760_000);
+    expect(r.taxableIncomeForIncomeTax).toBe(1_290_000);
+    expect(r.incomeTax).toBe(65_854);
+    expect(r.residentTax).toBe(179_000);
+    expect(r.totalDeduction).toBe(834_854);
+    expect(r.takeHome).toBe(3_165_146);
+    expect(r.takeHomeMonthly).toBe(263_762);
   });
 });
 
-describe("calculateSeveranceTax — 短期退職手当等（非役員・勤続5年以下・300万超部分は1/2なし）", () => {
-  const over = calculateSeveranceTax({
-    severancePay: 8_000_000,
-    serviceYears: 4,
-    serviceMonths: 0,
-    isDisability: false,
-    isBoardMember: false,
-  });
-  it("300万超部分は全額課税", () => {
-    expect(over.isShortTerm).toBe(true);
-    expect(over.incomeAfterDeduction).toBe(6_400_000);
-    expect(over.taxableRetirementIncome).toBe(4_900_000); // 150万 + (640万-300万)
-    expect(over.totalTax).toBe(1_054_102);
-  });
-
-  const under = calculateSeveranceTax({
-    severancePay: 3_000_000,
-    serviceYears: 3,
-    serviceMonths: 0,
-    isDisability: false,
-    isBoardMember: false,
-  });
-  it("300万以下は通常の1/2課税", () => {
-    expect(under.isShortTerm).toBe(true);
-    expect(under.incomeAfterDeduction).toBe(1_800_000);
-    expect(under.taxableRetirementIncome).toBe(900_000); // 1/2
-    expect(under.totalTax).toBe(135_945);
+describe("calculateNetSalary — 年収600万・40歳未満", () => {
+  const r = calculateNetSalary({ annualIncome: 6_000_000, isOver40: false });
+  it("内訳と手取り", () => {
+    expect(r.socialInsurance).toBe(885_000);
+    expect(r.employmentIncome).toBe(4_360_000);
+    expect(r.incomeTax).toBe(185_822);
+    expect(r.residentTax).toBe(309_500);
+    expect(r.takeHome).toBe(4_619_678);
   });
 });
 
-describe("calculateSeveranceTax — 障害退職の大口ケース", () => {
-  const r = calculateSeveranceTax({
-    severancePay: 30_000_000,
-    serviceYears: 25,
-    serviceMonths: 0,
-    isDisability: true,
-    isBoardMember: false,
+describe("calculateNetSalary — 整合性・低所得・境界", () => {
+  it("手取り = 年収 − (社会保険料 + 所得税 + 住民税)", () => {
+    for (const income of [1_000_000, 3_000_000, 5_000_000, 8_000_000, 12_000_000]) {
+      const r = calculateNetSalary({ annualIncome: income, isOver40: true });
+      expect(r.takeHome).toBe(income - (r.socialInsurance + r.incomeTax + r.residentTax));
+      expect(r.totalDeduction).toBe(r.socialInsurance + r.incomeTax + r.residentTax);
+    }
   });
-  it("控除に+100万・1/2課税・各税", () => {
-    expect(r.retirementDeduction).toBe(12_500_000);
-    expect(r.taxableRetirementIncome).toBe(8_750_000);
-    expect(r.incomeTax).toBe(1_376_500);
-    expect(r.incomeTaxTotal).toBe(1_405_406);
-    expect(r.residentTax).toBe(875_000);
-    expect(r.totalTax).toBe(2_280_406);
+  it("年収100万は所得税・住民税ともゼロ（社会保険料のみ差引）", () => {
+    const r = calculateNetSalary({ annualIncome: 1_000_000, isOver40: false });
+    expect(r.incomeTax).toBe(0);
+    expect(r.residentTax).toBe(0);
+    // 社会保険料（健保5%＋厚年9.15%＋雇用0.6%＝約14.75%）のみ引かれる
+    expect(r.takeHome).toBe(1_000_000 - r.socialInsurance);
+    expect(r.takeHomeRate).toBeGreaterThan(0.84);
+  });
+  it("年収0は全項目0", () => {
+    const r = calculateNetSalary({ annualIncome: 0, isOver40: false });
+    expect(r.takeHome).toBe(0);
+    expect(r.totalDeduction).toBe(0);
+    expect(r.takeHomeRate).toBe(0);
   });
 });

@@ -1,8 +1,8 @@
 {
-  "name": "taishoku-zei-calc",
+  "name": "tedori-calc",
   "version": "0.1.0",
   "private": true,
-  "description": "退職金の税金（所得税・復興特別所得税・住民税）を計算する静的な単機能ツール",
+  "description": "年収から手取り額（社会保険料・所得税・住民税を差し引いた金額）を概算する静的な単機能ツール",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

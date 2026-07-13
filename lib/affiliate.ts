@@ -20,28 +20,28 @@ export interface AffiliateOffer {
 }
 
 /**
- * 退職金の税金ツールと相性の良い案件の枠（url はオーナーが ASP 取得後に投入）。
+ * 手取り計算ツールと相性の良い案件の枠（url はオーナーが ASP 取得後に投入）。
  * enabled=false の間は一切表示されない。
  */
 export const AFFILIATE_OFFERS: AffiliateOffer[] = [
   {
     id: "tenshoku-agent",
-    label: "退職後のキャリアを相談する（転職エージェント）",
-    description: "退職・転職のタイミングや手取りの見通しを、無料でキャリアのプロに相談できます。",
+    label: "年収アップの相談をする（転職エージェント）",
+    description: "今の年収が適正か、手取りを増やすキャリアの選択肢を無料で相談できます。",
     url: "",
     enabled: false,
   },
   {
-    id: "ideco-comparison",
-    label: "iDeCo・退職金の受け取り方を比較する",
-    description: "一時金と年金、どちらで受け取ると税負担が軽いかを検討したい方向け。",
+    id: "money-consult",
+    label: "家計・保険の無料相談（FP相談）",
+    description: "手取りに対して固定費が高すぎないか、お金のプロに無料で相談できます。",
     url: "",
     enabled: false,
   },
   {
-    id: "tax-consult",
-    label: "税理士に退職金の申告を相談する",
-    description: "確定申告が必要なケースや、還付を受けられる可能性を専門家に確認できます。",
+    id: "furusato",
+    label: "ふるさと納税で実質負担を抑える",
+    description: "手取りの範囲で節税しながら返礼品を受け取れるふるさと納税を比較できます。",
     url: "",
     enabled: false,
   },

@@ -1,116 +1,118 @@
 /**
- * 退職金にかかる税金（所得税・復興特別所得税・住民税）の計算ロジック。
+ * 給与（年収）の手取り額を概算する計算ロジック。
  *
  * ─────────────────────────────────────────────────────────────
- *  法的根拠（最終確認日: 2026-07-13 / 出典はいずれも国税庁・総務省の公表資料）
+ *  法的根拠・料率の出典（最終確認日: 2026-07-13）
  * ─────────────────────────────────────────────────────────────
- *  - 退職所得の課税方式（分離課税）: 所得税法 第30条
- *  - 退職所得控除額 / 1/2課税:        所得税法 第30条、国税庁 No.1420「退職金を受け取ったとき（退職所得）」
- *      https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1420.htm
- *  - 特定役員退職手当等（役員等勤続年数5年以下は1/2課税なし）: 所得税法 第30条、国税庁 No.2732
- *      https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2732.htm
- *  - 短期退職手当等（令和4年分以後・役員等以外で勤続5年以下）:  国税庁 No.1420 / No.2725
- *      （収入金額−退職所得控除額）が300万円を超える部分は1/2課税の対象外
- *  - 所得税の速算表（税率・控除額）:  国税庁 No.2260「所得税の税率」
- *      https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2260.htm
- *  - 復興特別所得税（基準所得税額の2.1%・2013〜2037年）: 復興財源確保法
- *  - 退職所得に係る住民税（分離課税・特別徴収）: 地方税法 第50条の2・第328条
- *      標準税率10%（市町村民税6% + 道府県民税4%）。各100円未満切捨。
- *      ※平成25年1月1日以後に支払われる退職手当等は「10%税額控除」は廃止済み。
+ *  【所得税】
+ *  - 給与所得控除（令和7年分以降・最低保障65万円）: 所得税法別表第五 / 国税庁 No.1410
+ *      https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1410.htm
+ *  - 基礎控除（令和7年度税制改正・合計所得金額別。令和7〜8年分の上乗せを反映）: 国税庁
+ *      https://www.nta.go.jp/users/gensen/2025kiso/index.htm
+ *  - 所得税の速算表（税率5〜45%）: 国税庁 No.2260
+ *  - 復興特別所得税: 基準所得税額の2.1%（2013〜2037年）
+ *  【住民税】※前年所得に対して課税されるため、本ツールは当年所得ベースの概算
+ *  - 標準税率10%（市町村民税6%＋道府県民税4%）＋均等割5,000円（森林環境税1,000円含む）
+ *  - 基礎控除43万円。地方税法。調整控除は簡略化のため未計上（数千円の差）。
+ *  【社会保険料（従業員負担）】協会けんぽ・一般の事業を前提
+ *  - 健康保険: 全国平均10.00% → 従業員5.00%（都道府県で差）。標準報酬月額上限139万円/月
+ *  - 介護保険(40〜64歳): 1.59% → 従業員0.795%
+ *  - 厚生年金: 18.30% → 従業員9.15%。標準報酬月額上限65万円/月
+ *  - 雇用保険（労働者負担・一般の事業）: 0.6%
  *
- *  前提: 「退職所得の受給に関する申告書」を提出済み（分離課税で正規に計算される場合）。
- *        未提出の場合は収入金額に対して一律20.42%が源泉徴収されるため、本計算とは異なる。
- *
- *  ※ 出力はあくまで参考値。実際の税額・端数処理は勤務先・自治体・個別事情により異なる。
+ *  ※料率・控除額は毎年改定され、都道府県・事業の種類・扶養状況で変わります。
+ *    本ツールは扶養なし・単一の給与収入を前提とした概算であり、結果はあくまで参考値です。
  */
 
 /** ユーザー入力 */
-export interface SeveranceInput {
-  /** 退職金の収入金額（源泉徴収前・円） */
-  severancePay: number;
-  /** 勤続年数（年・整数部分） */
-  serviceYears: number;
-  /** 勤続年数の端数（月・0〜11）。1か月でもあれば1年に切り上げ */
-  serviceMonths: number;
-  /** 障害者になったことに直接基因して退職したか（控除額+100万円） */
-  isDisability: boolean;
-  /** 役員等（役員・国会議員・地方議員・公務員等）か */
-  isBoardMember: boolean;
+export interface NetSalaryInput {
+  /** 年収（額面・賞与含む・円） */
+  annualIncome: number;
+  /** 40歳以上65歳未満か（介護保険料の対象） */
+  isOver40: boolean;
 }
 
-/** 計算結果（内訳つき） */
-export interface SeveranceResult {
-  /** 端数切り上げ後の勤続年数（控除計算に用いる年数） */
-  serviceYearsCounted: number;
-  /** 退職所得控除額 */
-  retirementDeduction: number;
-  /** 収入金額 − 退職所得控除額（0未満は0） */
-  incomeAfterDeduction: number;
-  /** 特定役員退職手当等に該当するか（1/2課税なし） */
-  isSpecialOfficer: boolean;
-  /** 短期退職手当等に該当するか（300万円超部分は1/2課税なし） */
-  isShortTerm: boolean;
-  /** 課税退職所得金額（1000円未満切捨後） */
-  taxableRetirementIncome: number;
-  /** 所得税額（復興特別所得税を含まない） */
+/** 計算結果（内訳つき・すべて年額の円） */
+export interface NetSalaryResult {
+  /** 健康保険料（従業員負担） */
+  healthInsurance: number;
+  /** 介護保険料（従業員負担・40〜64歳のみ） */
+  nursingInsurance: number;
+  /** 厚生年金保険料（従業員負担） */
+  pensionInsurance: number;
+  /** 雇用保険料（従業員負担） */
+  employmentInsurance: number;
+  /** 社会保険料合計 */
+  socialInsurance: number;
+  /** 給与所得控除額 */
+  salaryDeduction: number;
+  /** 給与所得（年収 − 給与所得控除） */
+  employmentIncome: number;
+  /** 課税所得（所得税・1000円未満切捨後） */
+  taxableIncomeForIncomeTax: number;
+  /** 所得税（復興特別所得税を含む） */
   incomeTax: number;
-  /** 復興特別所得税額 */
-  reconstructionTax: number;
-  /** 所得税＋復興特別所得税（源泉徴収税額） */
-  incomeTaxTotal: number;
-  /** 市町村民税 */
-  cityTax: number;
-  /** 道府県民税 */
-  prefTax: number;
-  /** 住民税合計（特別徴収） */
+  /** 住民税（概算） */
   residentTax: number;
-  /** 税額合計（所得税＋復興＋住民税） */
-  totalTax: number;
-  /** 手取り額（収入金額 − 税額合計） */
+  /** 税・社会保険料の合計（＝年収 − 手取り） */
+  totalDeduction: number;
+  /** 手取り額（年額） */
   takeHome: number;
+  /** 手取り月額の目安（手取り年額 ÷ 12） */
+  takeHomeMonthly: number;
+  /** 手取り率（手取り ÷ 年収） */
+  takeHomeRate: number;
 }
 
-/** 1000円未満切捨 */
+// ── 料率・控除の定数（改定時はここと最終確認日を更新する）──
+const KENKO_RATE_EMP = 0.05; // 健康保険 従業員負担（全国平均10%の折半）
+const KAIGO_RATE_EMP = 0.00795; // 介護保険 従業員負担（1.59%の折半）
+const KOSEI_RATE_EMP = 0.0915; // 厚生年金 従業員負担（18.3%の折半）
+const KOYO_RATE_EMP = 0.006; // 雇用保険 労働者負担（一般の事業）
+const KENKO_ANNUAL_CAP = 16_680_000; // 健保 標準報酬月額上限139万円 × 12
+const KOSEI_ANNUAL_CAP = 7_800_000; // 厚年 標準報酬月額上限65万円 × 12
+const BASIC_DEDUCTION_RESIDENT = 430_000; // 住民税の基礎控除
+const JUMINZEI_KINTOWARI = 5_000; // 住民税 均等割（森林環境税含む）
+
 const floorTo1000 = (v: number): number => Math.floor(v / 1000) * 1000;
-/** 100円未満切捨 */
-const floorTo100 = (v: number): number => Math.floor(v / 100) * 100;
-/** 負数・NaN を 0 にクランプ */
 const clampNonNeg = (v: number): number => (Number.isFinite(v) && v > 0 ? v : 0);
 
 /**
- * 勤続年数を数える（端数切り上げ）。
- * 所得税法上、勤続年数に1年未満の端数があるときは1年に切り上げる。最低1年。
+ * 給与所得控除額（令和7年分以降）。
+ * 最低保障65万円、上限195万円。国税庁 No.1410。
+ * ※給与収入660万円未満は本来「別表第五」を用いるが、本ツールは速算表による概算。
  */
-export function countServiceYears(years: number, months: number): number {
-  const y = Math.max(0, Math.floor(clampNonNeg(years)));
-  const m = Math.max(0, Math.floor(clampNonNeg(months)));
-  const counted = y + (m > 0 ? 1 : 0);
-  return Math.max(1, counted);
+export function salaryIncomeDeduction(income: number): number {
+  const y = clampNonNeg(income);
+  if (y <= 1_900_000) return 650_000;
+  if (y <= 3_600_000) return Math.floor(y * 0.3) + 80_000;
+  if (y <= 6_600_000) return Math.floor(y * 0.2) + 440_000;
+  if (y <= 8_500_000) return Math.floor(y * 0.1) + 1_100_000;
+  return 1_950_000;
 }
 
 /**
- * 退職所得控除額を求める。
- *  - 勤続20年以下: 40万円 × 勤続年数（最低80万円）
- *  - 勤続20年超:   800万円 + 70万円 ×（勤続年数 − 20年）
- *  - 障害退職:     上記に +100万円
+ * 所得税の基礎控除（令和7年度税制改正・合計所得金額別。令和7〜8年分の上乗せを反映）。
+ * 2,350万円超は改正がなく、従来どおり2,400万円超で逓減し2,500万円超で0。
  */
-export function retirementDeduction(serviceYearsCounted: number, isDisability: boolean): number {
-  const a = Math.max(1, Math.floor(serviceYearsCounted));
-  let base: number;
-  if (a <= 20) {
-    base = Math.max(400_000 * a, 800_000);
-  } else {
-    base = 8_000_000 + 700_000 * (a - 20);
-  }
-  return base + (isDisability ? 1_000_000 : 0);
+export function basicDeductionIncomeTax(totalIncome: number): number {
+  const t = clampNonNeg(totalIncome);
+  if (t <= 1_320_000) return 950_000;
+  if (t <= 3_360_000) return 880_000;
+  if (t <= 4_890_000) return 680_000;
+  if (t <= 6_550_000) return 630_000;
+  if (t <= 23_500_000) return 580_000;
+  if (t <= 24_000_000) return 480_000;
+  if (t <= 24_500_000) return 320_000;
+  if (t <= 25_000_000) return 160_000;
+  return 0;
 }
 
 /**
- * 所得税の速算表（課税退職所得金額 → 所得税額・復興前）。
- * 出典: 国税庁 No.2260。金額は 1000円未満切捨済みの課税退職所得金額を渡す。
+ * 所得税の速算表（課税所得 → 税額・復興前）。国税庁 No.2260。
+ * 税率は整数（%）で計算し浮動小数点の誤差を避ける。
  */
 export function incomeTaxByBracket(taxable: number): number {
-  // 税率は整数（%）で計算し、浮動小数点の誤差（例: t*0.021 の丸め落ち）を避ける。
   const t = clampNonNeg(taxable);
   if (t <= 1_949_000) return (t * 5) / 100;
   if (t <= 3_299_000) return (t * 10) / 100 - 97_500;
@@ -122,68 +124,59 @@ export function incomeTaxByBracket(taxable: number): number {
 }
 
 /**
- * 退職金の税額を計算する（メイン関数）。
+ * 社会保険料（従業員負担・年額）を求める。
+ * 標準報酬月額の等級表は用いず、年収に上限を適用した概算。
  */
-export function calculateSeveranceTax(input: SeveranceInput): SeveranceResult {
-  const severancePay = clampNonNeg(input.severancePay);
-  const serviceYearsCounted = countServiceYears(input.serviceYears, input.serviceMonths);
-  const deduction = retirementDeduction(serviceYearsCounted, input.isDisability);
+export function socialInsurance(income: number, isOver40: boolean) {
+  const y = clampNonNeg(income);
+  const health = Math.round(Math.min(y, KENKO_ANNUAL_CAP) * KENKO_RATE_EMP);
+  const nursing = isOver40 ? Math.round(Math.min(y, KENKO_ANNUAL_CAP) * KAIGO_RATE_EMP) : 0;
+  const pension = Math.round(Math.min(y, KOSEI_ANNUAL_CAP) * KOSEI_RATE_EMP);
+  const employment = Math.round(y * KOYO_RATE_EMP);
+  return { health, nursing, pension, employment, total: health + nursing + pension + employment };
+}
 
-  // 収入 − 控除（0未満は0）
-  const incomeAfterDeduction = Math.max(0, severancePay - deduction);
+/**
+ * 年収から手取り額を概算する（メイン関数）。
+ */
+export function calculateNetSalary(input: NetSalaryInput): NetSalaryResult {
+  const income = clampNonNeg(input.annualIncome);
 
-  // 1/2課税の判定
-  const isSpecialOfficer = input.isBoardMember && serviceYearsCounted <= 5;
-  const isShortTerm = !input.isBoardMember && serviceYearsCounted <= 5;
+  // 社会保険料
+  const si = socialInsurance(income, input.isOver40);
 
-  // 課税退職所得金額（1000円未満切捨前）
-  let taxableRaw: number;
-  if (isSpecialOfficer) {
-    // 特定役員退職手当等: 1/2課税なし
-    taxableRaw = incomeAfterDeduction;
-  } else if (isShortTerm) {
-    // 短期退職手当等: 300万円までは1/2、超過分は全額
-    if (incomeAfterDeduction <= 3_000_000) {
-      taxableRaw = incomeAfterDeduction * 0.5;
-    } else {
-      taxableRaw = 1_500_000 + (incomeAfterDeduction - 3_000_000);
-    }
-  } else {
-    // 通常: 1/2課税
-    taxableRaw = incomeAfterDeduction * 0.5;
-  }
+  // 給与所得
+  const salaryDeduction = salaryIncomeDeduction(income);
+  const employmentIncome = Math.max(0, income - salaryDeduction);
 
-  const taxableRetirementIncome = floorTo1000(taxableRaw);
+  // 所得税
+  const basicIt = basicDeductionIncomeTax(employmentIncome);
+  const taxableIt = floorTo1000(Math.max(0, employmentIncome - si.total - basicIt));
+  const incomeTaxBase = Math.floor(incomeTaxByBracket(taxableIt));
+  const incomeTax = Math.floor((incomeTaxBase * 1021) / 1000); // 復興特別所得税込み・1円未満切捨
 
-  // 所得税・復興特別所得税
-  const incomeTaxBase = Math.floor(incomeTaxByBracket(taxableRetirementIncome));
-  // 源泉徴収税額 = 基準所得税額 × 102.1%（1円未満切捨）。×1021/1000 で整数計算し丸め誤差を避ける
-  const incomeTaxTotal = Math.floor((incomeTaxBase * 1021) / 1000);
-  const incomeTax = incomeTaxBase;
-  const reconstructionTax = incomeTaxTotal - incomeTax;
+  // 住民税（概算）: 所得割10%（100円未満切捨）＋ 均等割
+  const taxableRt = floorTo1000(Math.max(0, employmentIncome - si.total - BASIC_DEDUCTION_RESIDENT));
+  const residentLevy = Math.floor(taxableRt / 1000) * 100; // = taxableRt × 10% を100円未満切捨
+  const residentTax = taxableRt > 0 ? residentLevy + JUMINZEI_KINTOWARI : 0;
 
-  // 住民税（分離課税・特別徴収）: 市6% + 県4%、各100円未満切捨
-  const cityTax = floorTo100((taxableRetirementIncome * 6) / 100);
-  const prefTax = floorTo100((taxableRetirementIncome * 4) / 100);
-  const residentTax = cityTax + prefTax;
-
-  const totalTax = incomeTaxTotal + residentTax;
-  const takeHome = severancePay - totalTax;
+  const totalDeduction = si.total + incomeTax + residentTax;
+  const takeHome = income - totalDeduction;
 
   return {
-    serviceYearsCounted,
-    retirementDeduction: deduction,
-    incomeAfterDeduction,
-    isSpecialOfficer,
-    isShortTerm,
-    taxableRetirementIncome,
+    healthInsurance: si.health,
+    nursingInsurance: si.nursing,
+    pensionInsurance: si.pension,
+    employmentInsurance: si.employment,
+    socialInsurance: si.total,
+    salaryDeduction,
+    employmentIncome,
+    taxableIncomeForIncomeTax: taxableIt,
     incomeTax,
-    reconstructionTax,
-    incomeTaxTotal,
-    cityTax,
-    prefTax,
     residentTax,
-    totalTax,
+    totalDeduction,
     takeHome,
+    takeHomeMonthly: Math.round(takeHome / 12),
+    takeHomeRate: income > 0 ? takeHome / income : 0,
   };
 }

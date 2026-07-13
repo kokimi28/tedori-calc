@@ -2,18 +2,18 @@
  * サイト共通の定数。
  * 本番ドメインが Vercel の既定サブドメインと異なる場合は SITE_URL の1行だけ差し替える。
  */
-export const SITE_URL = "https://taishoku-zei-calc.vercel.app";
+export const SITE_URL = "https://tedori-calc.vercel.app";
 
-export const SITE_NAME = "退職金の税金計算シミュレーター";
+export const SITE_NAME = "年収の手取り計算シミュレーター";
 
 /** title 用の短い名称 */
-export const SITE_SHORT = "退職金の税金計算";
+export const SITE_SHORT = "年収の手取り計算";
 
 /** meta description（120〜160字目安） */
 export const SITE_DESCRIPTION =
-  "退職金にかかる所得税・復興特別所得税・住民税を、退職金額と勤続年数を入れるだけで自動計算。退職所得控除・2分の1課税・勤続20年の境界・障害退職・役員や短期退職の特例にも対応した無料シミュレーターです。結果はあくまで参考値としてご利用ください。";
+  "年収を入力するだけで、手取り額（年収から社会保険料・所得税・住民税を差し引いた金額）を自動計算。健康保険・厚生年金・雇用保険・介護保険と、令和7年改正後の給与所得控除・基礎控除に対応した無料の手取りシミュレーターです。結果はあくまで概算・参考値です。";
 
-/** 計算ロジックの法令確認日（各ページ末尾に表示） */
+/** 計算ロジックの法令・料率確認日（各ページ末尾に表示） */
 export const LAW_CHECKED_AT = "2026-07-13";
 
 export const NAV_LINKS = [

@@ -1,16 +1,16 @@
-import type { SeveranceResult } from "@/lib/calculations";
+import type { NetSalaryResult } from "@/lib/calculations";
 import { yen } from "@/lib/format";
 
 function Row({
   label,
   value,
-  strong = false,
   sub,
+  strong = false,
 }: {
   label: string;
   value: string;
-  strong?: boolean;
   sub?: string;
+  strong?: boolean;
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-2">
@@ -20,9 +20,7 @@ function Row({
       </span>
       <span
         className={
-          strong
-            ? "text-lg font-bold tabular-nums text-slate-900"
-            : "tabular-nums text-slate-800"
+          strong ? "text-lg font-bold tabular-nums text-slate-900" : "tabular-nums text-slate-800"
         }
       >
         {value}
@@ -31,20 +29,22 @@ function Row({
   );
 }
 
-export default function ResultDisplay({ result }: { result: SeveranceResult }) {
+export default function ResultDisplay({ result }: { result: NetSalaryResult }) {
   const {
-    serviceYearsCounted,
-    retirementDeduction,
-    incomeAfterDeduction,
-    taxableRetirementIncome,
+    healthInsurance,
+    nursingInsurance,
+    pensionInsurance,
+    employmentInsurance,
+    socialInsurance,
     incomeTax,
-    reconstructionTax,
     residentTax,
-    totalTax,
+    totalDeduction,
     takeHome,
-    isSpecialOfficer,
-    isShortTerm,
+    takeHomeMonthly,
+    takeHomeRate,
   } = result;
+
+  const ratePct = (takeHomeRate * 100).toFixed(1);
 
   return (
     <section
@@ -53,40 +53,36 @@ export default function ResultDisplay({ result }: { result: SeveranceResult }) {
       aria-live="polite"
     >
       <h2 className="mb-1 text-lg font-bold text-slate-800">計算結果</h2>
-      <p className="mb-4 text-xs text-slate-500">※あくまで参考値です。実際の税額は勤務先・自治体・個別事情により異なります。</p>
+      <p className="mb-4 text-xs text-slate-500">※あくまで概算・参考値です。実際の金額は勤務先・自治体・扶養状況により異なります。</p>
 
       <div className="mb-4 rounded-xl bg-white p-4 shadow-sm">
         <div className="flex items-baseline justify-between">
-          <span className="text-sm font-semibold text-slate-700">税額の合計（概算）</span>
-          <span className="text-2xl font-bold tabular-nums text-brand-dark">{yen(totalTax)}</span>
+          <span className="text-sm font-semibold text-slate-700">手取り額（年額）</span>
+          <span className="text-2xl font-bold tabular-nums text-brand-dark">{yen(takeHome)}</span>
         </div>
         <div className="mt-2 flex items-baseline justify-between border-t border-slate-100 pt-2">
-          <span className="text-sm text-slate-600">手取り額の目安</span>
-          <span className="text-xl font-bold tabular-nums text-slate-900">{yen(takeHome)}</span>
+          <span className="text-sm text-slate-600">手取り月額の目安</span>
+          <span className="text-xl font-bold tabular-nums text-slate-900">{yen(takeHomeMonthly)}</span>
+        </div>
+        <div className="mt-2 flex items-baseline justify-between">
+          <span className="text-sm text-slate-600">手取り率</span>
+          <span className="tabular-nums text-slate-800">{ratePct}%</span>
         </div>
       </div>
 
       <div className="divide-y divide-slate-200">
-        <Row label="勤続年数（切り上げ後）" value={`${serviceYearsCounted} 年`} />
-        <Row label="退職所得控除額" value={yen(retirementDeduction)} />
-        <Row label="控除後の金額" value={yen(incomeAfterDeduction)} />
-        <Row label="課税退職所得金額" value={yen(taxableRetirementIncome)} />
-        <Row label="所得税" value={yen(incomeTax)} />
-        <Row label="復興特別所得税" sub="所得税の2.1%" value={yen(reconstructionTax)} />
-        <Row label="住民税" sub="市6%＋県4%" value={yen(residentTax)} />
-        <Row label="税額の合計" value={yen(totalTax)} strong />
+        <Row label="健康保険料" value={yen(healthInsurance)} />
+        {nursingInsurance > 0 && <Row label="介護保険料" sub="40歳以上" value={yen(nursingInsurance)} />}
+        <Row label="厚生年金保険料" value={yen(pensionInsurance)} />
+        <Row label="雇用保険料" value={yen(employmentInsurance)} />
+        <Row label="社会保険料 合計" value={yen(socialInsurance)} strong />
+        <Row label="所得税" sub="復興特別所得税込み" value={yen(incomeTax)} />
+        <Row label="住民税" sub="概算" value={yen(residentTax)} />
+        <Row label="差引かれる合計" value={yen(totalDeduction)} strong />
       </div>
 
-      {(isSpecialOfficer || isShortTerm) && (
-        <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
-          {isSpecialOfficer
-            ? "役員等で勤続5年以下のため「特定役員退職手当等」として、2分の1課税が適用されていません。"
-            : "勤続5年以下のため「短期退職手当等」として、控除後300万円を超える部分には2分の1課税が適用されていません。"}
-        </p>
-      )}
-
       <p className="mt-4 text-xs text-slate-500">
-        「退職所得の受給に関する申告書」を勤務先へ提出している前提で計算しています。未提出の場合は退職金の額に一律20.42%が源泉徴収され、計算が異なります。
+        社会保険料は標準報酬月額の等級表を用いない年収ベースの概算です。住民税は前年所得に対して課税されるため、当年の年収から求めた目安になります。
       </p>
     </section>
   );
