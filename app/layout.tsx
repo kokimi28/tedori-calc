@@ -41,6 +41,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
+      <head>
+        {/* GA タグは <head> 内に直接置く（Search Console の GA 所有権確認の要件） */}
+        <Analytics />
+      </head>
       <body className="min-h-screen flex flex-col">
         <header className="border-b border-slate-200 bg-white">
           <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
@@ -79,8 +83,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </p>
           </div>
         </footer>
-
-        <Analytics />
       </body>
     </html>
   );

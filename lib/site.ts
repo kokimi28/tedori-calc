@@ -2,7 +2,10 @@
  * サイト共通の定数。
  * 本番ドメインが Vercel の既定サブドメインと異なる場合は SITE_URL の1行だけ差し替える。
  */
-export const SITE_URL = "https://tedori-calc.vercel.app";
+// 注意: tedori-calc.vercel.app は第三者の同種ツールが占有済み（2026-07-14 確認）。
+// Vercel の Project Name を「tedori-keisan」にして import する前提（空きは同日確認済み）。
+// 実際の本番ドメインが異なる場合はこの1行だけ差し替える。
+export const SITE_URL = "https://tedori-keisan.vercel.app";
 
 export const SITE_NAME = "年収の手取り計算シミュレーター";
 
