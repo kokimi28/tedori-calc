@@ -6,6 +6,8 @@
  *  - リンクは常に rel="sponsored nofollow" + target="_blank" rel="noopener noreferrer"（CTA 側で付与）。
  *  - 1ページに表示するのは最大3本まで（activeOffers が slice(0,3)）。
  *  - url 未取得（enabled=false または url="") の案件は表示されない＝「CTA コメントアウト」状態で先行公開できる。
+ *  - ⚠ 実URLへの差し替え（url 投入・enabled:true 化）＝収益化トリガー。Vercel Pro 移行の
+ *    オーナー判断（STOP: 決済・課金）とセットで行う。CLAUDE.md「収益化トリガー」節を参照。
  */
 export interface AffiliateOffer {
   id: string;
