@@ -153,3 +153,43 @@ describe("記事 worked example: 社会保険料の内訳（shakai-hoken-uchiwak
     expect(r.residentTax).toBe(244_200);
   });
 });
+
+describe("記事 worked example: 手取りから年収逆算の早見表（tedori-kara-nenshu-gyakusan 記事の裏取り）", () => {
+  // 会社員・扶養なし・40歳未満の年収→手取り（記事の早見表の各行）
+  const table: Array<[number, number, number]> = [
+    // [annualIncome, takeHome, takeHomeMonthly]
+    [3_000_000, 2_402_219, 200_185],
+    [4_000_000, 3_165_146, 263_762],
+    [5_000_000, 3_899_150, 324_929],
+    [6_000_000, 4_619_678, 384_973],
+    [7_000_000, 5_303_023, 441_919],
+  ];
+  for (const [inc, takeHome, monthly] of table) {
+    it(`年収${inc / 10_000}万: 手取り${takeHome}・月${monthly}`, () => {
+      const r = calculateNetSalary({ annualIncome: inc, isOver40: false });
+      expect(r.takeHome).toBe(takeHome);
+      expect(r.takeHomeMonthly).toBe(monthly);
+    });
+  }
+  it("手取り率は年収とともに低下する（累進課税・逆算が固定倍率でない根拠）", () => {
+    const r300 = calculateNetSalary({ annualIncome: 3_000_000, isOver40: false });
+    const r700 = calculateNetSalary({ annualIncome: 7_000_000, isOver40: false });
+    expect(r300.takeHomeRate).toBeGreaterThan(r700.takeHomeRate);
+    expect(Math.round(r300.takeHomeRate * 1000)).toBe(801); // 約80.1%
+    expect(Math.round(r700.takeHomeRate * 1000)).toBe(758); // 約75.8%
+  });
+});
+
+describe("記事 worked example: 手取り月額 vs 年収÷12（tedori-getsugaku-nenshu-12 記事の裏取り）", () => {
+  it("年収500万: 手取り月額324,929 は 額面月額416,667 より小さい", () => {
+    const r = calculateNetSalary({ annualIncome: 5_000_000, isOver40: false });
+    expect(r.takeHomeMonthly).toBe(324_929);
+    expect(Math.round(5_000_000 / 12)).toBe(416_667);
+    expect(r.takeHomeMonthly).toBeLessThan(Math.round(5_000_000 / 12));
+  });
+  it("年収400万: 手取り月額263,762 vs 額面月額333,333", () => {
+    const r = calculateNetSalary({ annualIncome: 4_000_000, isOver40: false });
+    expect(r.takeHomeMonthly).toBe(263_762);
+    expect(Math.round(4_000_000 / 12)).toBe(333_333);
+  });
+});
