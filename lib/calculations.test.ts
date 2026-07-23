@@ -42,6 +42,19 @@ describe("incomeTaxByBracket — 所得税速算表の境界", () => {
     expect(incomeTaxByBracket(1_950_000)).toBe(97_500);
     expect(incomeTaxByBracket(3_300_000)).toBe(232_500);
   });
+  it("695万・900万の境界（20%→23%→33%）", () => {
+    expect(incomeTaxByBracket(6_949_000)).toBe(962_300);
+    expect(incomeTaxByBracket(6_950_000)).toBe(962_500);
+    expect(incomeTaxByBracket(8_999_000)).toBe(1_433_770);
+    expect(incomeTaxByBracket(9_000_000)).toBe(1_434_000);
+  });
+  it("1800万・4000万の境界（33%→40%→45%）", () => {
+    expect(incomeTaxByBracket(17_999_000)).toBe(4_403_670);
+    expect(incomeTaxByBracket(18_000_000)).toBe(4_404_000);
+    expect(incomeTaxByBracket(39_999_000)).toBe(13_203_600);
+    expect(incomeTaxByBracket(40_000_000)).toBe(13_204_000); // 45% 区分に入る
+    expect(incomeTaxByBracket(50_000_000)).toBe(17_704_000);
+  });
   it("課税0は税0", () => {
     expect(incomeTaxByBracket(0)).toBe(0);
   });
@@ -64,6 +77,13 @@ describe("socialInsurance — 社会保険料（従業員負担）", () => {
   it("厚生年金は標準報酬月額上限（年780万相当）で頭打ち", () => {
     const hi = socialInsurance(20_000_000, false);
     expect(hi.pension).toBe(Math.round(7_800_000 * 0.0915)); // 713,700 で頭打ち
+  });
+  it("健康保険・介護保険は標準報酬月額上限（年1,668万相当）で頭打ち", () => {
+    const hi = socialInsurance(20_000_000, true);
+    expect(hi.health).toBe(834_000); // min(2,000万, 1,668万) × 5% で頭打ち
+    expect(hi.nursing).toBe(132_606); // 同上限 × 0.795%
+    // 雇用保険は上限なし＝全額に率がかかる
+    expect(hi.employment).toBe(120_000); // 2,000万 × 0.6%
   });
 });
 
