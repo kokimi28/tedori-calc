@@ -116,3 +116,40 @@ describe("calculateNetSalary — 整合性・低所得・境界", () => {
     expect(r.takeHomeRate).toBe(0);
   });
 });
+
+describe("記事 worked example: 40歳の介護保険料と手取り（kaigo-hoken-40sai-tedori 記事の裏取り）", () => {
+  // 年収500万・扶養なしで 40歳未満 vs 40歳以上
+  const under = calculateNetSalary({ annualIncome: 5_000_000, isOver40: false });
+  const over = calculateNetSalary({ annualIncome: 5_000_000, isOver40: true });
+  it("40歳未満: 社保737,500・手取り3,899,150・月324,929", () => {
+    expect(under.socialInsurance).toBe(737_500);
+    expect(under.nursingInsurance).toBe(0);
+    expect(under.takeHome).toBe(3_899_150);
+    expect(under.takeHomeMonthly).toBe(324_929);
+  });
+  it("40歳以上: 介護39,750・社保777,250・手取り3,867,484・月322,290", () => {
+    expect(over.nursingInsurance).toBe(39_750);
+    expect(over.socialInsurance).toBe(777_250);
+    expect(over.takeHome).toBe(3_867_484);
+    expect(over.takeHomeMonthly).toBe(322_290);
+  });
+  it("差額: 年31,666・月2,639", () => {
+    expect(under.takeHome - over.takeHome).toBe(31_666);
+    expect(under.takeHomeMonthly - over.takeHomeMonthly).toBe(2_639);
+  });
+});
+
+describe("記事 worked example: 社会保険料の内訳（shakai-hoken-uchiwake-tedori 記事の裏取り）", () => {
+  // 年収500万・扶養なし・40歳未満
+  const r = calculateNetSalary({ annualIncome: 5_000_000, isOver40: false });
+  it("内訳: 健保250,000・厚年457,500・雇用30,000・合計737,500", () => {
+    expect(r.healthInsurance).toBe(250_000);
+    expect(r.pensionInsurance).toBe(457_500);
+    expect(r.employmentInsurance).toBe(30_000);
+    expect(r.socialInsurance).toBe(737_500);
+  });
+  it("記事で言及する所得税119,150・住民税244,200", () => {
+    expect(r.incomeTax).toBe(119_150);
+    expect(r.residentTax).toBe(244_200);
+  });
+});
