@@ -30,6 +30,8 @@
       "Write(./.env.local)",
       "Bash(git push --force*)",
       "Bash(git push -f*)",
+      "Bash(git push * --force*)",
+      "Bash(git push * -f*)",
       "Bash(git push * main)"
     ],
     "ask": ["Bash(git push*)"]

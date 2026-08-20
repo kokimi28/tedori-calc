@@ -25,4 +25,4 @@ Closes #
 
 - [ ] CLAUDE.md「最優先の規約」の禁止リスト（永続化・認証・localStorage・LLM API・重量級ライブラリ・WebSocket/SSE・決済）に抵触していない
 - [ ] 収益導線（`lib/affiliate.ts` の `enabled` / `url`）に触れていない（触れる場合はオーナーの Vercel Pro 移行判断＝STOP を経ている）
-- [ ] 料率・控除の変更あり → `lib/calculations.ts` の最終確認日・`LAW_CHECKED_AT` と境界値テストを更新した / 料率変更なし
+- [ ] 料率・控除の変更あり → `lib/calculations.ts` の料率コメント最終確認日・`lib/site.ts` の `LAW_CHECKED_AT`・境界値テストを更新した / 料率変更なし
