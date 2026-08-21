@@ -35,3 +35,6 @@ next-env.d.ts
 
 # local commit message helper
 .commitmsg
+
+# claude — リモート UI 検証の一時出力（scripts/verify-ui-remote.mjs）
+.claude/tmp/

@@ -62,3 +62,14 @@
 - 進捗・質問・👤依頼・完了報告は dev-env **Issue #4** のコメントに集約する。
 - コミットは小さく、差分と根拠を残す。CI（`npm run test` ＋ `npm run build`）green を確認してからマージ。
 - Windows: git は `"C:\Program Files\Git\cmd\git.exe"`、`npm install` は `--include=dev`。
+
+## リモート/クラウドセッション運用（claude.ai/code・スマホ発）
+
+`CLAUDE_CODE_REMOTE=true` のとき、claude.ai/code のクラウドコンテナ（Linux）で実行されている。SessionStart hook（`.claude/hooks/session-start.mjs`）が依存導入と環境診断（preflight）を行い、結果をセッション冒頭に出力する。この環境ではローカルの個人設定（`~/.claude/`・ユーザー MCP）は届かない前提で、以下の縮退規約に従う。
+
+- **止まらない**: 検証手段が無いことを理由に作業を中断しない。実装 → 実行可能な検証をすべて実行 → push → draft PR 作成 → CI green まで追走、が完了の定義。
+- **検証はできるものを全部**: `npm run typecheck` → `npm run test` → `npm run build` の3点は必ず実行する（CI と同一ゲート）。実行できなかった検証は PR 本文の「未検証項目」に列挙する（黙って省略しない）。
+- **UI 実機確認**: 本リポは静的な計算ツール（DB なし・サーバー秘密なし）のため、開発サーバーを起動して `node scripts/verify-ui-remote.mjs http://localhost:3000/ <他URL...>` を実行し、スクリーンショット（`.claude/tmp/ui-*.png`）を Read で視覚確認すれば UI 確認は**ほぼ完結**する（同梱 Chromium 使用・依存追加なし）。
+- **secrets 非接触**: 本リポにサーバー秘密は無い。扱う env は公開値 `NEXT_PUBLIC_GA_MEASUREMENT_ID` の1つだけで、未設定でも検証3点と verify-ui は通る（値の要求・推測・生成をしない）。
+- **外部疎通の限界**: allowlist 外（`*.vercel.app` 等）への疎通確認は不可（HTTP 000）。デプロイ後確認は CI とオーナーに委ねる。
+- **収益化トリガーはリモートでも STOP のまま**: ASP 案件 URL の差し込み・CTA の有効化（`lib/affiliate.ts` の `url` 投入＋`enabled:true` 化）は、リモートセッションであっても「収益化トリガー」節どおりオーナー専任の STOP 対象。単独で実行しない。
